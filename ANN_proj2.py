@@ -21,6 +21,19 @@ import kaggle
 import pandas as pd
 import scipy.stats as stats
 
+class Config:
+    def __init__(self):
+        self.nlayers = 2
+        self.nunits = 300
+        self.bn = True
+        self.lr = np.linspace(0.0002, 0.002, 10)
+        self.batch_size = 32
+        self.num_epochs = 500
+        self.opt = 'SGD'
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.dropout_rate = 0.1
+        self.L2 = 0
+      
 def createFFN(nlayer, nunit, BN, dropout_rate):
     class FFN(nn.Module):
         def __init__(self):
@@ -49,12 +62,12 @@ def createFFN(nlayer, nunit, BN, dropout_rate):
             return x
     return FFN()
 
-def train(FFNnet, opt, LR, L2):
+def train(FFNnet, config, LR, train_loader, test_loader):
     
     numepoch = 500
     #lossfun = nn.CrossEntropyLoss()
     lossfun = nn.BCEWithLogitsLoss()
-    optifun = getattr(torch.optim, opt)
+    optifun = getattr(torch.optim, config.opt)
     optimizer = optifun(FFNnet.parameters(), lr=LR)
     
     train_loss = torch.zeros(numepoch)
@@ -106,77 +119,71 @@ def train(FFNnet, opt, LR, L2):
         
         #print(f'epoch {epochi}')
     return trainAcc, testAcc, train_loss
-                    
-#kaggle.api.dataset_download_files('redwankarimsony/heart-disease-data', path='C:/Users/USER/Desktop/pytorch_class/G_D/kaggle_dataset', unzip=True)
-
-#path='C:/Users/USER/Desktop/pytorch_class/G_D/kaggle_dataset/heart_disease_uci.csv'
-#data = pd.read_csv(path)
-
-url  = 'https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data'
-data = pd.read_csv(url,sep=',',header=None)
-
-#print(data.keys())
-data.columns = ['age','sex','cp','trestbps','chol','fbs','restecg','thalach','exang','oldpeak','slope','ca','thal','DISEASE']
-
-key = data.keys()
-key = key.drop(['sex','fbs','exang','DISEASE'])
-data = data.replace('?',np.nan).dropna()
-
-data['DISEASE'][data['DISEASE']>0] = 1
-label = data['DISEASE']
-
-for k in key:
-    data[k] = pd.to_numeric(data[k])
-
-data = data.apply(stats.zscore)
-
-dataT = torch.tensor(data[key].values).float()
-labelT = torch.tensor(label.values).float()
-labelT = labelT[:,None]
-#print(labelT)
-
-train_data, test_data, train_labels, test_labels = train_test_split(dataT, labelT, test_size=0.1)
-
-train_data = TensorDataset(train_data, train_labels)
-test_data = TensorDataset(test_data, test_labels)
-batchsize = 16
-train_loader = DataLoader(train_data, batch_size=batchsize, shuffle=True, drop_last=True)
-test_loader = DataLoader(test_data, batch_size=test_data.tensors[0].shape[0])
 
 
-#nlayers_options = [2, 4]
-#nunits_options = [128, 256]
-LR_options = np.linspace(0.0002, 0.002, 10)
-dropout_rate = 0.1
+def main():
+                        
+    #kaggle.api.dataset_download_files('redwankarimsony/heart-disease-data', path='C:/Users/USER/Desktop/pytorch_class/G_D/kaggle_dataset', unzip=True)
+    
+    #path='C:/Users/USER/Desktop/pytorch_class/G_D/kaggle_dataset/heart_disease_uci.csv'
+    #data = pd.read_csv(path)
+    config = Config()
+    
+    url  = 'https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data'
+    data = pd.read_csv(url,sep=',',header=None)
+    
+    #print(data.keys())
+    data.columns = ['age','sex','cp','trestbps','chol','fbs','restecg','thalach','exang','oldpeak','slope','ca','thal','DISEASE']
+    
+    key = data.keys()
+    key = key.drop(['sex','fbs','exang','DISEASE'])
+    data = data.replace('?',np.nan).dropna()
+    
+    data['DISEASE'][data['DISEASE']>0] = 1
+    label = data['DISEASE']
+    
+    for k in key:
+        data[k] = pd.to_numeric(data[k])
+    
+    data = data.apply(stats.zscore)
+    
+    dataT = torch.tensor(data[key].values).float()
+    labelT = torch.tensor(label.values).float()
+    labelT = labelT[:,None]
+    #print(labelT)
+    
+    train_data, test_data, train_labels, test_labels = train_test_split(dataT, labelT, test_size=0.1)
+    
+    train_data = TensorDataset(train_data, train_labels)
+    test_data = TensorDataset(test_data, test_labels)
 
-nlayers = 2
-nunits = 300
-bn = True
-#LR = 0.04
-L2 = 0
-optalgo = 'SGD'
+    train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, drop_last=True)
+    test_loader = DataLoader(test_data, batch_size=test_data.tensors[0].shape[0])
+    
+    
+    fig, axes = plt.subplots(len(config.lr),1 , figsize=(15,15), sharex=True, sharey=True)
+    fig.suptitle('Test Accuracy by Configuration')
+    
+    
+    for i, LR in enumerate(config.lr):
+        net = createFFN(config.nlayers, config.nunits, config.bn, config.dropout_rate)
+        trainAcc, testAcc, train_loss = train(net, config, LR, train_loader, test_loader)
+    
+        ax = axes[i]
+        ax.plot(trainAcc, label=f"train_LR={LR}")
+        ax.plot(testAcc, label=f"test_LR={LR}")
+        ax.set_title(f"Layers={config.nlayers}, Units={config.nunits}")
+        ax.set_xlabel('Epochs')
+        ax.set_ylabel('Accuracy')
+        ax.legend()
+        print(f'train:{np.mean(trainAcc)}')
+        print(f'test:{np.mean(testAcc)}')
+    
+    plt.tight_layout(pad=2.0)
+    plt.show()
 
-fig, axes = plt.subplots(len(LR_options),1 , figsize=(15,15), sharex=True, sharey=True)
-fig.suptitle('Test Accuracy by Configuration')
-
-
-for i, LR in enumerate(LR_options):
-    net = createFFN(nlayers, nunits, bn, dropout_rate)
-    trainAcc, testAcc, train_loss = train(net, optalgo, LR, L2)
-
-    ax = axes[i]
-    ax.plot(trainAcc, label=f"train_LR={LR}")
-    ax.plot(testAcc, label=f"test_LR={LR}")
-    ax.set_title(f"Layers={nlayers}, Units={nunits}")
-    ax.set_xlabel('Epochs')
-    ax.set_ylabel('Accuracy')
-    ax.legend()
-    print(f'train:{np.mean(trainAcc)}')
-    print(f'test:{np.mean(testAcc)}')
-
-plt.tight_layout(pad=2.0)
-plt.show()
-
+if __name__ == "__main__":
+    main()
 
 
 

@@ -75,7 +75,7 @@ def create_VAE(input_dim, hidden_dim, latent_dim):
     return VAE()
        
 def loss_fun(re_x, x, mean, logvar):
-    BCE = nn.functional.binary_cross_entropy(re_x, x, reduction='sum')
+    BCE = nn.functional.binary_cross_entropy(re_x, x, reduction='mean')
     KLD = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp())
     return BCE + KLD
 
@@ -126,7 +126,7 @@ def main():
         
     train_dataset = datasets.MNIST(config.data_dir, train=True, download=download, transform=transform)
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
-    print(config.device)
+
     VAE = create_VAE(config.input_dim, config.hidden_dim, config.latent_dim).to(config.device)
     
     train_loss = train(VAE, config, train_loader)
