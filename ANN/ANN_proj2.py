@@ -7,11 +7,9 @@ import torch.nn as nn
 from torch.utils.data import DataLoader,TensorDataset
 import torch.nn.functional as F
 import numpy as np
+from config import Config
 
 import matplotlib.pyplot as plt
-import matplotlib_inline.backend_inline
-from sklearn.preprocessing import LabelBinarizer
-import seaborn as sns
 from IPython.display import set_matplotlib_formats
 set_matplotlib_formats('svg')
 
@@ -21,19 +19,7 @@ import kaggle
 import pandas as pd
 import scipy.stats as stats
 
-class Config:
-    def __init__(self):
-        self.nlayers = 2
-        self.nunits = 300
-        self.bn = True
-        self.lr = np.linspace(0.0002, 0.002, 10)
-        self.batch_size = 32
-        self.num_epochs = 500
-        self.opt = 'SGD'
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.dropout_rate = 0.1
-        self.L2 = 0
-      
+
 def createFFN(nlayer, nunit, BN, dropout_rate):
     class FFN(nn.Module):
         def __init__(self):
@@ -125,8 +111,6 @@ def main():
                         
     #kaggle.api.dataset_download_files('redwankarimsony/heart-disease-data', path='C:/Users/USER/Desktop/pytorch_class/G_D/kaggle_dataset', unzip=True)
     
-    #path='C:/Users/USER/Desktop/pytorch_class/G_D/kaggle_dataset/heart_disease_uci.csv'
-    #data = pd.read_csv(path)
     config = Config()
     
     url  = 'https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data'
