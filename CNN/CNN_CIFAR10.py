@@ -34,9 +34,9 @@ class Config:
         "output": 10  # Number of classes for CIFAR-10
         }
         
-        self.epochs = 100
-        self.opt = "SGD"
-        self.lr = 0.01
+        self.epochs = 50
+        self.opt = "Adam"
+        self.lr = 0.001
         self.dropout_rate = 0.25
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
@@ -99,10 +99,12 @@ def train(CNNnet, config, train_loader, dev_loader, test_loader):
     CNNnet.to(config.device)
     lossfun = nn.CrossEntropyLoss()
     optifun = getattr(optim, config.opt)
-    optimizer = optifun(CNNnet.parameters(), lr=config.lr)   
+    optimizer = optifun(CNNnet.parameters(), lr=config.lr, weight_decay=1e-5)   
     
     train_loss = torch.zeros(config.epochs)
     train_acc = torch.zeros(config.epochs)
+    dev_loss = torch.zeros(config.epochs)
+    dev_acc = torch.zeros(config.epochs)
     for epoch in range (config.epochs):
         
         CNNnet.train()
@@ -126,10 +128,10 @@ def train(CNNnet, config, train_loader, dev_loader, test_loader):
         
         train_loss[epoch] = np.mean(batch_loss)
         train_acc[epoch] = np.mean (batch_acc)
-        print(f"Epoch {epoch+1}, Training Loss: {train_loss[epoch]}, Training Accuracy: {train_acc[epoch]}%")
+        print(f"Epoch {epoch+1}/nTraining Loss: {train_loss[epoch]}, Training Accuracy: {train_acc[epoch]}%")
         
-        dev_loss, dev_acc = evaluate_model(CNNnet, config, dev_loader, lossfun)
-        print(f"dev Loss: {dev_loss}, test Accuracy: {dev_acc}%")
+        dev_loss[epoch], dev_acc[epoch] = evaluate_model(CNNnet, config, dev_loader, lossfun)
+        print(f"dev Loss: {dev_loss[epoch]}, dev Accuracy: {dev_acc[epoch]}%")
     
     return train_loss, train_acc, dev_loss, dev_acc
 
